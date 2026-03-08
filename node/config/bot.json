@@ -1,0 +1,9 @@
+{
+    "name": "bot Panel",
+    "id": "bot",
+    "width": 8,
+    "height": 8,
+    "moduleServiceUrl": "http://192.168.1.71:3002",
+    "panelType": "sensehat",
+    "rotation": "270"
+}

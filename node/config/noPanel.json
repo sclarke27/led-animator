@@ -1,0 +1,8 @@
+{
+    "name": "No Panel",
+    "id": "nopanel",
+    "width": 32,
+    "height": 32,
+    "moduleServiceUrl": "http://127.0.0.1:3002",
+    "panelType": "none"
+}

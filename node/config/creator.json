@@ -1,0 +1,8 @@
+{
+    "name": "Matrix Creator",
+    "id": "creator",
+    "width": 35,
+    "height": 1,
+    "moduleServiceUrl": "http://192.168.1.71:3002",
+    "panelType": "matrixCreator"
+}

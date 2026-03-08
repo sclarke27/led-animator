@@ -1,0 +1,14 @@
+{
+    "name": "Big Panel",
+    "id": "big",
+    "width": 64,
+    "height": 64,
+    "moduleServiceUrl": "http://192.168.1.69:3002",
+    "panelType": "rpi-rgb-led-matrix",
+    "chained": 1,
+    "parallel": 2,
+    "brightness": 100,
+    "hardwareMapping": "adafruit-hat-pwm",
+    "rgbSequence": "RGB",
+    "cmdLineArgs": ["--led-multiplexing=0","--led-row-addr-type=4"]
+}

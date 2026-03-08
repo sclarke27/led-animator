@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../sprite-editor"
+		},
+		{
+			"path": "../latticeSpark"
+		}
+	],
+	"settings": {}
+}

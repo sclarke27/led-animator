@@ -1,108 +1,160 @@
-# Led Panel Animator
+# LED Animator
 
-Sample Swim application to provide a simple method to display animations on one or more commercial LED matrix display panels. Swim used to maintain panel state and NodeJS used to update panel hardware based on current Swim state. Web UI used to import, create, and manage the animations shown on the panels. 
+LED panel animation editor and playback engine, built as a [LatticeSpark](https://github.com/sclarke27/latticeSpark) module.
 
-Application contains a simple web based pixel editor that is used to create and manage the animations displayed on individual LED panels. With the pixel editor you can import animated GIFs, .piskel files, or create your own animtions. No coding needed. You can also sync your panel with what is displayed in the editor and live edit your animations right on the panel in real time.
+Create pixel animations in a browser-based editor and play them back on physical LED panels (RGB matrix, SenseHAT, Matrix Creator) connected via Raspberry Pi.
 
-The application itself can be highly distributed. For example, the server canon a cloud service and manage a number of remote LED panels with each panel attached to its own pi where the client runs. On the flip side, you can simply run the entire thing off a single Pi attached to a panel which runs both server and client right on that pi.
+## Architecture
 
-Animation data itself is stored in swim and on disk as JSON. Application supports a number of panel types and sizes with more coming soon. Even supports animating the LEDs on the Matrix Creator and SenseHat boards. Each animation is a JSON object containing things like frame size, fps, name, etc. It also contains an array of RGB values which define all the unique colors in the animation. Using that, the frame data is just a list of index lookups to this color pallette for each pixel. That way, each frame is simply a list of index lookups.
+```
+Browser UI ←→ Socket.IO ←→ LatticeSpark Module ←→ Socket.IO ←→ Node.js Hardware Client (RPi)
+```
 
-## Hardware Requriements
-* Raspberry Pi 3 or 4
-* LED Driver Hardware Options:
-    * Adafruit RGBMatrix Hat https://www.adafruit.com/product/2345
-    * SensHat [link]
-    * Matrix Creator
-* LED Panel Options:
-    * Most 32x32, 64x64, and 64x128 LED panels
-    * SenseHat 8x8 LED display
-    * Matrix Creator 35 LED circle arrangement
+The project has two parts:
 
-### Notes about different hardware
+- **`module/`** — LatticeSpark module with server logic, web UI, and animation storage. Deployed to a latticeSpark instance.
+- **`node/`** — Hardware client that runs on each Raspberry Pi with an LED panel. Receives pixel data from the module via Socket.IO.
 
-#### Large LED Panels
+## Module Deployment
 
-If you are using a standard LED panel, its recommended to use the RGBMatrix Hat along with it. It makes hardware setup easier and there are some nice NodeJS APIs for talking directly with the board. No Python or Arduino required.
+### Deploy script
 
-It is highly recommended that you disable the sound on the Pi to prevent flicker on the LED Panel. You will need to jumper pins 4 and 18 on the board as well. This makes a big difference and is worth the extra bit of work.
+```bash
+./deploy.sh /path/to/latticeSpark
+```
 
-If you are using a 64x64 or 64x128 panel you will also need to add solder to pad 8 on the board to enable the proper LED addressing. You will also need some additional command line options to define the shape of your panel. See the bigPanel.json config file for an example 128x64 setup.
+Or set the `LATTICESPARK_HOME` environment variable:
 
-You must run NodeJS with sudo so that it gets the proper hardware access needed for high refresh rates. example: `sudo npm start config=panel1`
+```bash
+export LATTICESPARK_HOME=/path/to/latticeSpark
+./deploy.sh
+```
 
-#### Matrix Creator
+### Manual deployment
 
-Nothing special is needed to play animations on the Creator LEDs. In the Web UI, it will appear as a panel with the size of 35x1. There is an example config file for the creator in the /config folder
+```bash
+cp -r module/ /path/to/latticeSpark/modules/led-animator/
+```
 
-#### SenseHat
+### Live reload (if latticeSpark is already running)
 
-The SenseHat comes with a 8x8 LED display on its face. Like the creator, nothing extra is needed to drive the LEDs other then using the proper configuration. There is an example in /config.
+```bash
+curl -X POST http://localhost:3002/api/modules/rescan
+```
 
-## Getting Started
+### Remote deployment via hub
 
-### First steps
-* [Assemble your Hat if needed](https://learn.adafruit.com/adafruit-rgb-matrix-plus-real-time-clock-hat-for-raspberry-pi/assembly) and attach it to the Pi. If you are using the RGB Matrix Hat, be sure to review the notes above about driving large panels.
-* Make sure you have Nodejs 12+ installed on the Pi.
-* Make sure you have Java9+ installed where ever you intend to run the server. 
+ZIP the `module/` directory and POST to the fleet API:
 
+```bash
+cd module && zip -r ../led-animator.zip . && cd ..
+# Upload via fleet API
+```
 
-### Install:
-* git clone https://github.com/swimos/led-animator.git
-* cd node
-* npm install
-* Edit your json config file in /config so that the swimUrl points to where your server will run. If you are running everything on the same Pi, 127.0.0.1 is fine.
+## Hardware Client Setup
 
-### Run the Server (panel state manager + web ui):
-* cd java
-* ./gradlew run
+The hardware client runs on each Raspberry Pi connected to an LED panel.
 
-### Run the Client (hardware bridge):
-* cd node
-* sudo npm start config=[configFile]
+### Install
 
+```bash
+cd node
+npm install
+```
 
+### Configure
 
-## Inside the Swim LED Manager Application
+Edit `config/panel1.json` (or create a new config file):
 
-The source code has lot of comments to help you understand how things operate. If you need help or have questions, [do not hestiate to reach out and ask](https://gitter.im/swimos/community). We are happy to help!
+```json
+{
+    "name": "My Panel",
+    "id": "mypanel",
+    "width": 32,
+    "height": 32,
+    "moduleServiceUrl": "http://192.168.1.71:3002",
+    "panelType": "rpi-rgb-led-matrix",
+    "chained": 1,
+    "parallel": 1,
+    "brightness": 100,
+    "hardwareMapping": "adafruit-hat-pwm",
+    "rgbSequence": "RGB"
+}
+```
 
-### Server
+Set `moduleServiceUrl` to point to your latticeSpark instance's module-service (port 3002).
 
-Using the [Swim open source library](https://www.swimos.org/) we can create an application server which creates a [Swim WebAgent](https://www.swimos.org/concepts/agents/) for each LED Panel being managed by the application. Each of these WebAgent can then manage the state of the real world panel assigned to it. The data inside every WebAgent is then available to both the Panel clients and WebUI where the state is managed by a user. Clients Can open swim links to the various lanes in the WebAgent to get real time updates when that lane's value changes. This also allows for the server and client to run on different hardware from each other.
+#### Panel Types
 
-### Client
+| `panelType` | Hardware | Extra Config |
+|---|---|---|
+| `rpi-rgb-led-matrix` | RGB LED matrix via GPIO hat | `chained`, `parallel`, `brightness`, `hardwareMapping`, `rgbSequence`, `cmdLineArgs` |
+| `sensehat` | Raspberry Pi Sense HAT (8x8) | `rotation` |
+| `matrixCreator` | Matrix Creator (35x1) | — |
+| `none` | No hardware (testing only) | — |
 
-The client scripts use the [Swim JavaScript Client](https://github.com/swimos/swim/tree/master/swim-system-js/swim-mesh-js/%40swim/client) to link to and listen for changes on the [Lanes](https://www.swimos.org/concepts/lanes/) on their respective WebAgents and update the displays based on that state stored in the WebAgent. Each client runs in NodeJS and acts as a bridge to the hardware which drives the physical display. 
+### Run with PM2
 
-### WebUI
+```bash
+pm2 start main.js --name led-panel -- config=panel1
+pm2 save
+pm2 startup  # auto-start on boot
+```
 
-The LED Manager UI is also served by Swim and can be found at `http://<your server ip>:9001/`. The WebUI is where users manage what is displayed on each LED Panel that the server is able to manage. The UI itself is a simple pixel editor which allows of importing and editing animated Gifs for display on the LED Panel. When importing new Gifs, be sure to scale them to the correct size for your LED panel before uploading. The Ui also uses the [Swim JavaScript Client](https://github.com/swimos/swim/tree/master/swim-system-js/swim-mesh-js/%40swim/client) to link to same Swim Lanes that the node process listens on. By using [Swim command lanes](https://docs.swimos.org/java/latest/swim.api/swim/api/lane/CommandLane.html), the UI is able update and manage the LED Panel state.
+#### Multiple panels
 
-## WebUI Cheatsheet
+```bash
+pm2 start main.js --name led-panel-1 -- config=panel1
+pm2 start main.js --name led-panel-2 -- config=panel2
+pm2 save
+```
 
-![cheatsheet](/ui/assets/images/ledAnimatorUI-cheatsheet.png)
+#### Management
 
-## Useful links
+```bash
+pm2 logs led-panel        # view logs
+pm2 restart led-panel     # restart
+pm2 stop led-panel        # stop
+```
 
-*Libraries used in this example*
-* https://github.com/easybotics/node-rpi-rgb-led-matrix
-* https://www.npmjs.com/package/node-sense-hat
-* https://github.com/buzzfeed/libgif-js (SuperGif)
-* https://matrix-io.github.io/matrix-documentation/matrix-creator/overview/
+### Run directly (development)
 
-*Links to hardware used in this example*
-* [Adafruit RGB Matrix HAT](https://www.adafruit.com/product/2345) - for large panels
-* [Matrix Creator](https://www.matrix.one/products/creator)
-* [SenseHAT](https://www.adafruit.com/product/2738)
-* [64x64 LED Panels](https://www.amazon.com/gp/product/B07LFJ73GQ)
-* [32x32 LED Panel](https://www.amazon.com/dp/B07BMG7RG4)
+```bash
+node main.js config=panel1
+```
 
-*Other Useful Links*
-* [Adafruit RGB Matrix Hat Assembly](https://learn.adafruit.com/adafruit-rgb-matrix-plus-real-time-clock-hat-for-raspberry-pi/assembly)
+## UI Features
 
-*Swim Documentation*
-* [Swim Javascript Docs](https://docs.swimos.org/js/latest/index.html)
-* [Swim JavaDocs](https://docs.swimos.org/java/latest/index.html)
-* [Swim Tutorials](https://github.com/swimos/tutorial)
-* [Swim Community](https://gitter.im/swimos/community)
+The web UI is served by latticeSpark at `/module-ui/led-animator/` and provides:
+
+- Canvas-based pixel editor for creating animations
+- Frame management (add, copy, delete frames)
+- Color palette with HSL picker
+- GIF import
+- Animation save/load
+- Multi-panel management
+- Play/stop/sync modes for live preview on hardware
+- Resize animations
+
+## Project Structure
+
+```
+led-animator/
+├── module/                    # LatticeSpark module (deploy this)
+│   ├── module.json
+│   ├── led-animator.module.js
+│   ├── ui/                    # Web UI
+│   │   ├── index.html
+│   │   └── assets/
+│   └── animations/            # Saved animation JSON files
+├── node/                      # Hardware client (runs on RPi)
+│   ├── main.js
+│   ├── package.json
+│   └── config/
+├── deploy.sh
+└── README.md
+```
+
+## License
+
+ISC
