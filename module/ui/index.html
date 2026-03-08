@@ -1,0 +1,295 @@
+<!doctype html>
+<html class="no-js" lang="en">
+
+<head>
+	<meta charset="utf-8">
+	<meta http-equiv="x-ua-compatible" content="ie=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+	<title>LED Panel Editor</title>
+	<meta name="description" content="">
+	<link rel="icon" type="image/png" href="assets/favicon-512.png">
+
+	<!-- styles -->
+	<link href="https://fonts.googleapis.com/css?family=Open+Sans:400,400i,500,600,700|Orbitron:400,500|Material+Icons" rel="stylesheet">
+	<link rel="stylesheet" href="assets/css/bootstrap.min.css" type="text/css">
+	<link rel="stylesheet" href="assets/css/main.css" type="text/css">
+
+	<!-- javascript -->
+	<script src="assets/js/lib/libgif.js"></script>
+	<script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+	<script src="assets/js/lib/color-util.js"></script>
+	<script src="assets/js/lib/ls-module-client.js"></script>
+	<script src="assets/js/index.js"></script>
+
+	<script>
+		window.page = null;
+
+		function start() {
+			const client = new LSModuleClient('led-animator', {
+				socketUrl: window.location.origin,
+				socketPath: '/modules-io'
+			});
+			window.page = new LedMatrixPage(client);
+			window.page.initialize();
+		}
+	</script>
+</head>
+<!-- body -->
+
+<body class="page" onload="start()">
+	<main class="main">
+		<!-- main panel container -->
+		<div class="gridPanel" id="layoutMain">
+			<!-- left column -->
+			<div class="gridCell">
+				<!-- animation preview section -->
+				<div class="cellPanel canvasPanel">
+
+					<div class="headerPanel">
+						<h3>LED Panel Editor</h3>
+						<!-- animation tool buttons -->
+						<div class="infoRow2">
+							<input type="button" class="menuButton" value="New" onclick="page.showDialog('newAnimationDialog')">
+							<input type="button" class="menuButton" value="Load" onclick="page.showDialog('loadFileDialog')">
+							<input type="button" class="menuButton" value="Save" onclick="page.saveAnimation()">
+							<input type="button" class="menuButton" value="Import" onclick="page.showDialog('importAnimation')">
+							<input type="button" class="menuButton" value="Save File" onclick="page.saveAnimationToFile()">
+							<input type="button" class="menuButton" value="Load File" onclick="page.loadAnimationFromFile()">
+						</div>				
+		
+						<!-- animation information row -->
+						<div class="infoRow">
+							<div>
+								Name: <input type="text" id="animName" style="text-align: left;" onchange="page.updateName()">
+							</div>
+							<div style="text-align: right;">
+								ID:<span id="nameIdValue"></span>
+							</div>
+						</div>
+					</div>
+
+					<!-- animation canvas -->
+					<div class="gridRow">
+						<div class="brushTools" id="brushTools">
+							<span class="material-icons on" id="brushButton" onclick="page.selectTool('brush')">edit</span>
+							<span class="material-icons" id="eraserButton" onclick="page.selectTool('eraser')">remove_circle_outline</span>
+							<span class="material-icons" id="dropperButton" onclick="page.selectTool('dropper')">colorize</span>
+							<span class="material-icons" id="fillButton" onclick="page.selectTool('fill')">format_paint</span>
+							<span class="material-icons" onclick="page.zoomIn()" title="Zoom In (+)">zoom_in</span>
+							<span class="material-icons" onclick="page.zoomOut()" title="Zoom Out (-)">zoom_out</span>
+							<span class="material-icons" onclick="page.zoomReset()" title="Reset Zoom">fit_screen</span>
+						</div>
+
+						<div id="pixelGrid">
+							<canvas id="pixelCanvas" width="32" height="32"></canvas>
+						</div>
+					</div>					
+
+					<div class="animation-panel">
+						<h3>Animation Timeline</h3>
+						<!-- animation frames section -->
+						<div class="infoRow">
+							<div>FPS: <input type="text" id="animSpeed" onchange="page.updateSpeed()" maxlength="3" size="2"> </div>
+							<div style="text-align: center;">X: <span id="cursorXPos"></span> Y: <span id="cursorYPos"></span></div>
+							<div style="text-align: right;">rgb: <span id="rgbAtCursor"></span></div>
+						</div>
+						<div id="framesPanel">
+							<div id="framesContainer">
+							</div>
+							<div class="framesControls">
+							</div>		
+						</div>
+						<div class="animationControlLabels">
+							<div>Animation Controls</div>
+							&nbsp;
+							<div>Frame Tools</div>
+						</div>
+						<div class="animationControls">
+							<span class="material-icons" onclick="page.selectFrame(0)" title="First Frame">
+								fast_rewind
+							</span>
+							<span class="material-icons" onclick="page.selectFrame(page.selectedFrame-1)" title="Previous Frame">
+								skip_previous
+							</span>
+							<span class="material-icons" onclick="page.toggleAnimationPreview()" id="playButton" title="Play">
+								play_arrow
+							</span>
+							<span class="material-icons" onclick="page.selectFrame(page.selectedFrame+1)" title="Next Frame">
+								skip_next
+							</span>
+							<span class="material-icons" onclick="page.selectFrame(page.animationsList[page.selectedAnimation].frames.length-1)" title="Last Frame">
+								fast_forward
+							</span>
+							&nbsp;
+							<span class="material-icons" onclick="page.addFrame()" title="Add Frame">
+								add
+							</span>
+							<span class="material-icons" onclick="page.deleteFrame()" title="Remove Frame">
+								remove
+							</span>
+							<span class="material-icons" onclick="page.duplicateFrame()" title="Duplicate Frame">
+								file_copy
+							</span>
+
+						</div>
+					</div>
+					<!-- <h3 class="cellBottom">&nbsp;</h3> -->
+				</div>
+			</div>
+			
+			<!-- right column -->
+			<div class="gridCell">
+				<!-- Color Pallette section -->
+				<div class="cellPanel toolsPanel">
+					
+					<div class="cellGrid6">
+						<div class="pixelPanel">
+							<h3>Color Pallette</h3>
+							<!-- pallettes row -->
+							<div class="palletteRow">
+								<div id="colorPallette"></div>
+								<div id="activePalletteContainer">
+									<div id="activePallette"></div>
+								</div>
+							</div>
+
+							<!-- rgb color picker row -->
+							<div class="colorRow">
+								<div class="activeColors" onclick="page.toggleFgColorActive()">
+									<div id="backgroundColorChip"></div>
+									<div id="foregroundColorChip"></div>
+								</div>
+								
+								<div class="colorSelectors">
+									R:<input type="number" maxlength="3" size="2" id="redInput" onchange="page.updateSelectedColor()" min="0" max="255">
+										<input type="range" id="redInputRange" min="0" max="255" value="255" onchange="page.updateColorFromSlider()">
+									G:<input type="number" maxlength="3" size="2" id="greenInput" onchange="page.updateSelectedColor()" min="0" max="255">
+										<input type="range" id="greenInputRange" min="0" max="255" value="255" onchange="page.updateColorFromSlider()">
+									B:<input type="number" maxlength="3" size="2" id="blueInput" onchange="page.updateSelectedColor()" min="0" max="255">
+									<input type="range" id="blueInputRange" min="0" max="255" value="255" onchange="page.updateColorFromSlider()">
+
+								</div>
+
+							</div>
+
+							<!-- tool buttons -->
+							<h6>Clear frame to:</h6>
+							<div class="palletteTools">
+								<input type="button" value="All Black" onclick="page.clearLedPixels()">
+								<input type="button" value="All White" onclick="page.clearLedPixels('255,255,255')">
+								<input type="button" value="All Selected" onclick="page.clearLedPixels('selected')">
+							</div>
+	
+						</div>
+					</div>
+				</div>
+
+				<!-- Selected Panel State and panel list section -->
+				<div class="cellPanel">
+					<h3><span id="panelNameDiv">Selected Panel</span> State</h3>
+					<div class="cellGrid4" style="height: 98px;">
+						<div>
+							<h6>Active Animation</h6>
+							<div id="panelAnimName"></div>
+						</div>
+						<div>
+							<h6>LED Command</h6>
+							<div id="panelCommand"></div>
+						</div>
+						<div>
+							<h6>Resolution</h6>
+							<div id="panelSize">W:* H:*</div>
+						</div>
+						<div>
+							<h6>Panel Controls</h6>
+							<div class="panelControls">
+								<span class="material-icons" id="syncButton" onclick="page.syncPanelToPreview()" title="Sync Panel with Preview">
+									sync
+								</span>
+								<span class="material-icons" id="animPlayButton" onclick="page.togglePanelAnimationState()" title="Play Animation on Panel">
+									play_arrow
+								</span>
+								<span class="material-icons" onclick="page.pushAnimationToPanel()" title="Upload Preview To Panel">
+									input
+								</span>
+							</div>
+						</div>
+					</div>
+					<h4>LED Panel Listing</h4>
+					<div class="cellGrid8" id="mainPanelList">
+
+					</div>
+					<!-- <h3 class="cellBottom">&nbsp;</h3> -->
+				</div>
+
+			</div>
+
+		</div>
+		
+		<!-- used for importing piskel files -->
+		<div id="offscreenCanvas" style="display: none">
+
+		</div>
+
+		<!-- overlays section -->
+		<div id="overlayBg">
+			<div id="overlayFg">
+				<!-- overlay title -->
+				<h4 id="overlayTitle">&nbsp;</h4>
+				<div id="overlayContent">
+					
+					<!-- load file dialog -->
+					<div id="loadFileDialog">
+						<h5>Saved Animations:</h5>
+						<select id="animationList"></select>
+						<div class="dialogButtonRow">
+							<input type="button" value="Cancel" class="cancelButton" onclick="page.closeDialog()">
+							<input type="button" value="Load" class="okButton" onclick="page.loadAnimation()">
+	
+						</div>
+					</div>
+
+					<!-- import Gif dialog -->
+					<div id="importAnimation">
+						<h5>Import Animation</h5>
+						<div style="font-size: 12px;">
+							Resize images to fit panel before importing.<br>This will not scale images.
+						</div>
+						<div class="dialogButtonRow">
+							<input type="button" value="Cancel" class="cancelButton" onclick="page.closeDialog()">
+							<input type="file" id="gifImportButton" accept=".gif,.piskel" style="width: 130px;">
+							<!-- <input type="button" value="Load" class="okButton" onclick="page.importGif()"> -->
+	
+						</div>
+					</div>
+					
+					<!-- new animation dialog -->
+					<div id="newAnimationDialog">
+						<h5>New Animation</h5>
+						<div style="font-size: 12px;">
+							Enter animation size:
+						</div>
+						<div>
+							<form id="newAnimationForm" action="post">
+								W: <input type="text" id="animWidth" value="32" size="2" maxlength="3" style="text-align: center;">
+								H: <input type="text" id="animHeight" value="32" size="2" maxlength="3" style="text-align: center;">
+							</form>
+						</div>
+						<div class="dialogButtonRow">
+							<input type="button" value="Cancel" class="cancelButton" onclick="page.closeDialog()">
+							<input type="button" value="New" class="okButton" onclick="page.newAnimation()">
+						</div>
+					</div>
+
+				</div>
+			</div>
+
+		</div>
+
+	</main>
+	<!-- /main -->
+
+</body>
+
+</html>

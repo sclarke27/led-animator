@@ -1,0 +1,9 @@
+{
+  "name": "LED Animator",
+  "description": "LED panel animation editor and playback engine",
+  "version": "1.0.0",
+  "enabled": true,
+  "components": { "read": [], "write": [] },
+  "triggers": {},
+  "ui": { "standalone": true, "label": "LED Animator" }
+}
