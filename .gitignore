@@ -12,3 +12,4 @@ out
 /java/bin
 /java/build
 /node/node_modules
+*.code-workspace
