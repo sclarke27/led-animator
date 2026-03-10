@@ -27,8 +27,13 @@ cp -r "$SCRIPT_DIR/module/"* "$MODULES_DIR/"
 echo "Deployed successfully."
 
 # If module-service is running, trigger a rescan
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/api/modules/rescan -X POST 2>/dev/null | grep -q "200"; then
+RESCAN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/api/modules/rescan -X POST 2>/dev/null || true)
+if [ "$RESCAN_STATUS" = "200" ]; then
   echo "Module service rescanned — led-animator should be loaded."
+elif [ "$RESCAN_STATUS" = "000" ]; then
+  echo "Could not connect to module service on port 3002."
+  echo "Check that latticeSpark is running and verify the correct port."
 else
-  echo "Module service not running. Start latticeSpark to load the module."
+  echo "Module service returned HTTP $RESCAN_STATUS on rescan."
+  echo "Check latticeSpark logs for errors loading led-animator."
 fi
