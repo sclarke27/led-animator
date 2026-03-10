@@ -26,8 +26,19 @@ cp -r "$SCRIPT_DIR/module/"* "$MODULES_DIR/"
 
 echo "Deployed successfully."
 
+# Read API key from env or latticeSpark cluster config
+API_KEY="${LATTICESPARK_API_KEY:-}"
+if [ -z "$API_KEY" ] && [ -f "$TARGET/config/cluster.json" ]; then
+  API_KEY=$(grep -o '"apiKey"\s*:\s*"[^"]*"' "$TARGET/config/cluster.json" 2>/dev/null | head -1 | sed 's/.*: *"//;s/"$//' || true)
+fi
+
+AUTH_HEADER=""
+if [ -n "$API_KEY" ]; then
+  AUTH_HEADER="-H X-API-Key:$API_KEY"
+fi
+
 # If module-service is running, trigger a rescan
-RESCAN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3002/api/modules/rescan -X POST 2>/dev/null || true)
+RESCAN_STATUS=$(curl -s -o /dev/null -w "%{http_code}" $AUTH_HEADER http://localhost:3002/api/modules/rescan -X POST 2>/dev/null || true)
 if [ "$RESCAN_STATUS" = "200" ]; then
   echo "Module service rescanned — led-animator should be loaded."
 elif [ "$RESCAN_STATUS" = "000" ]; then
